@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Dropbox Cloud Storage</h2>
+
+<input id="filename" placeholder="File name">
+<br><br>
+<textarea id="content" placeholder="Enter file content"></textarea>
+<br><br>
+
+<button id="uploadBtn">Upload File</button>
+<button id="listBtn">View Files</button>
+
+<pre id="result">Ready</pre>
+
+<script>
+const output = document.getElementById("result");
+
+document.getElementById("uploadBtn").addEventListener("click", async () => {
+  const filename = document.getElementById("filename").value.trim();
+  const content = document.getElementById("content").value;
+
+  if (!filename || !content) {
+    output.textContent = "Enter both filename and content.";
+    return;
+  }
+
+  output.textContent = "Uploading...";
+
+  try {
+    const response = await fetch("http://localhost:5000/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename, content })
+    });
+
+    const data = await response.json();
+    output.textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    output.textContent = "Upload error: " + error.message;
+  }
+});
+
+document.getElementById("listBtn").addEventListener("click", async () => {
+  output.textContent = "Loading files...";
+
+  try {
+    const response = await fetch("http://localhost:5000/files");
+    const data = await response.json();
+    output.textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    output.textContent = "Error: " + error.message;
+  }
+});
+</script>
+</body>
+</html>
