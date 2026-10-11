@@ -1,58 +1,122 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropbox PDF Storage</title>
+</head>
 <body>
-<h2>Dropbox Cloud Storage</h2>
+    <h1>Dropbox Cloud Storage</h1>
 
-<input id="filename" placeholder="File name">
-<br><br>
-<textarea id="content" placeholder="Enter file content"></textarea>
-<br><br>
+    <h2>Upload PDF</h2>
+    <input type="file" id="pdfFile" accept=".pdf,application/pdf">
+    <button id="uploadBtn">Upload PDF</button>
+    <p id="message"></p>
 
-<button id="uploadBtn">Upload File</button>
-<button id="listBtn">View Files</button>
+    <hr>
 
-<pre id="result">Ready</pre>
+    <h2>Files in Dropbox</h2>
+    <button id="viewBtn">View Files</button>
+    <ul id="fileList"></ul>
 
-<script>
-const output = document.getElementById("result");
+    <script>
+        const API = "http://localhost:5000";
 
-document.getElementById("uploadBtn").addEventListener("click", async () => {
-  const filename = document.getElementById("filename").value.trim();
-  const content = document.getElementById("content").value;
+        document.getElementById("uploadBtn").addEventListener("click", async () => {
+            const file = document.getElementById("pdfFile").files[0];
+            const message = document.getElementById("message");
 
-  if (!filename || !content) {
-    output.textContent = "Enter both filename and content.";
-    return;
-  }
+            if (!file) {
+                message.textContent = "Please select a PDF file.";
+                return;
+            }
 
-  output.textContent = "Uploading...";
+            if (file.type !== "application/pdf" &&
+                !file.name.toLowerCase().endsWith(".pdf")) {
+                message.textContent = "Please select a PDF file.";
+                return;
+            }
 
-  try {
-    const response = await fetch("http://localhost:5000/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename, content })
-    });
+            const formData = new FormData();
+            formData.append("pdf", file);
 
-    const data = await response.json();
-    output.textContent = JSON.stringify(data, null, 2);
-  } catch (error) {
-    output.textContent = "Upload error: " + error.message;
-  }
-});
+            try {
+                message.textContent = "Uploading...";
+                const response = await fetch(API + "/upload", {
+                    method: "POST",
+                    body: formData
+                });
 
-document.getElementById("listBtn").addEventListener("click", async () => {
-  output.textContent = "Loading files...";
+                const data = await response.json();
 
-  try {
-    const response = await fetch("http://localhost:5000/files");
-    const data = await response.json();
-    output.textContent = JSON.stringify(data, null, 2);
-  } catch (error) {
-    output.textContent = "Error: " + error.message;
-  }
-});
-</script>
+                if (!response.ok) throw new Error(data.error);
+
+                message.textContent = data.message + ": " + data.name;
+                document.getElementById("pdfFile").value = "";
+                document.getElementById("viewBtn").click();
+            } catch (error) {
+                message.textContent = "Upload failed: " + error.message;
+            }
+        });
+
+        document.getElementById("viewBtn").addEventListener("click", async () => {
+            const list = document.getElementById("fileList");
+            list.replaceChildren();
+
+            try {
+                const response = await fetch(API + "/files");
+                const files = await response.json();
+
+                if (!response.ok) throw new Error(files.error);
+
+                if (files.length === 0) {
+                    list.textContent = "No files found.";
+                    return;
+                }
+
+                files.forEach(file => {
+                    const item = document.createElement("li");
+                    item.appendChild(document.createTextNode(file.name + " "));
+
+                    if (file.type === "file" &&
+                        file.name.toLowerCase().endsWith(".pdf")) {
+                        const button = document.createElement("button");
+                        button.textContent = "Download PDF";
+
+                        button.addEventListener("click", async () => {
+                            try {
+                                button.disabled = true;
+                                const url = API + "/download?path=" +
+                                    encodeURIComponent(file.path);
+
+                                const downloadResponse = await fetch(url);
+                                if (!downloadResponse.ok) {
+                                    throw new Error(await downloadResponse.text());
+                                }
+
+                                const blob = await downloadResponse.blob();
+                                const link = document.createElement("a");
+                                link.href = URL.createObjectURL(blob);
+                                link.download = file.name;
+                                link.click();
+                                URL.revokeObjectURL(link.href);
+                            } catch (error) {
+                                alert("Download failed: " + error.message);
+                            } finally {
+                                button.disabled = false;
+                            }
+                        });
+
+                        item.appendChild(button);
+                    }
+
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                list.textContent = "Could not load files: " + error.message;
+            }
+        });
+    </script>
 </body>
 </html>
