@@ -3,6 +3,7 @@ cd C:\Users\surut\dropbox-crud
 
 npm init -y
 npm install express cors dotenv dropbox
+npm install multer
 
 notepad .env
 notepad server.js
